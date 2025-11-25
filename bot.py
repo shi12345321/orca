@@ -20,7 +20,6 @@ invites = {}
 
 import os
 
-
 log_channels = {}
 
 quote_channels = {}
@@ -40,8 +39,6 @@ async def on_ready():
         invites[guild.id] = await guild.invites()
         logger.debug(f'Cached invites for guild: {guild.name} ({guild.id})')
 
-  
-
 async def send_log_message(bot, guild_id, member, action):
     channel_id = log_channels.get(guild_id)
     if not channel_id:
@@ -50,7 +47,6 @@ async def send_log_message(bot, guild_id, member, action):
     channel = bot.get_channel(channel_id)
     if channel is None:
         logger.warning(f"Log channel with ID {channel_id} not found in guild {guild_id}.")
-        return
         return
     try:
         embed = discord.Embed(color=discord.Color.dark_red())
@@ -76,6 +72,7 @@ async def on_ready():
     for guild in bot.guilds:
         invites[guild.id] = await guild.invites()
         logger.debug(f'Cached invites for guild: {guild.name} ({guild.id})')
+
 async def query_virustotal(url):
     import base64
     import asyncio
@@ -112,6 +109,7 @@ async def query_virustotal(url):
     except Exception as e:
         logger.error(f"Error querying VirusTotal: {e}")
         return None
+
 @bot.event
 async def on_ready():
     logger.info(f'Logged in as {bot.user} (ID: {bot.user.id})')
@@ -122,10 +120,12 @@ async def on_ready():
     for guild in bot.guilds:
         invites[guild.id] = await guild.invites()
         logger.debug(f'Cached invites for guild: {guild.name} ({guild.id})')
+
 @bot.event
 async def on_guild_join(guild):
     invites[guild.id] = await guild.invites()
     logger.debug(f'Cached invites for new guild: {guild.name} ({guild.id})')
+
 @bot.event
 async def on_member_join(member):
     logger.debug(f'Member joined: {member} (bot={member.bot})')
@@ -222,8 +222,7 @@ async def scan(ctx, url: str):
                     engine_name = result.get("engine_name", engine)
                     result_message = result.get("result", "none")
                     details_text += f"**{engine_name}**: {category} (method: {method}) - Result: {result_message}\n"
-                if details_text:
-                  
+                if details_text:                  
                     chunk_size = 1024
                     for i in range(0, len(details_text), chunk_size):
                         chunk = details_text[i:i+chunk_size]
@@ -287,15 +286,12 @@ async def on_message(message):
     if message.author == bot.user:
         return
 
-    
     if contains_suspicious_link(message.content):
         logger.warning(f"Suspicious link detected in message from {message.author} in {message.channel}: {message.content}")
         embed = discord.Embed(description=f"Warning: Suspicious link detected from {message.author.mention}!", color=discord.Color.red())
         await message.channel.send(embed=embed)
 
-    
     for attachment in message.attachments:
-    
         if contains_suspicious_link(attachment.url):
             logger.warning(f"Suspicious attachment URL detected from {message.author} in {message.channel}: {attachment.url}")
             embed = discord.Embed(description=f"Warning: Suspicious attachment detected from {message.author.mention}!", color=discord.Color.red())
@@ -308,7 +304,6 @@ async def on_message(message):
             await message.channel.send(embed=embed)
             break
 
-    
     await bot.process_commands(message)
 
 @bot.command(name='scanserver')
@@ -333,6 +328,8 @@ async def scanserver(ctx, limit: int = 100):
         await ctx.send(report)
     else:
         await ctx.send("No suspicious links found in recent messages.")
+
+
 
 @bot.command(name='setlogchannel')
 @commands.has_permissions(administrator=True)
