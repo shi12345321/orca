@@ -6,6 +6,7 @@ import base64
 import aiohttp
 import discord
 from discord.ext import commands
+from discord import app_commands
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -23,7 +24,7 @@ intents.message_content = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 log_channels = {}
 invites = {}
-whitelisted_users = {}  # guild_id: set of whitelisted user IDs
+whitelisted_users = {}  
 
 suspicious_patterns = [
     r"https?://[^\s]*image-logger[^\s]*",
@@ -102,6 +103,12 @@ async def send_log_message(guild_id, member, action):
 async def on_ready():
     activity = discord.Game(name="WATCHING ORCA SERVERS")
     await bot.change_presence(status=discord.Status.online, activity=activity)
+
+    try:
+        synced = await bot.tree.sync()
+        logger.info(f"Synced {len(synced)} slash commands.")
+    except Exception as e:
+        logger.error(f"Slash command sync error: {e}")
 
     for guild in bot.guilds:
         try:
@@ -217,4 +224,18 @@ async def whitelist(ctx, user: discord.User):
     whitelisted_users[guild_id].add(user.id)
     await ctx.send(f"User {user.mention} has been whitelisted for adding bots.")
 
+@bot.tree.command(name="whitelist", description="Whitelist a user so they can add bots.")
+@app_commands.checks.has_permissions(administrator=True)
+async def whitelist_slash(interaction: discord.Interaction, user: discord.User):
+    guild_id = interaction.guild_id
+
+    if guild_id not in whitelisted_users:
+        whitelisted_users[guild_id] = set()
+
+    whitelisted_users[guild_id].add(user.id)
+
+    await interaction.response.send_message(
+        f"User {user.mention} has been **whitelisted** for adding bots.",
+        ephemeral=True
+    )
 bot.run(TOKEN)
