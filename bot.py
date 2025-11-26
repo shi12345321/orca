@@ -2,7 +2,6 @@ import os
 import re
 import asyncio
 import logging
-import base64
 import aiohttp
 import discord
 from discord.ext import commands
@@ -25,7 +24,6 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 log_channels = {}
 invites = {}
 whitelisted_users = {}  
-
 suspicious_patterns = [
     r"https?://[^\s]*image-logger[^\s]*",
     r"https?://[^\s]*keylogger[^\s]*",
@@ -164,8 +162,10 @@ async def on_message(message):
     await bot.process_commands(message)
 
 @bot.command()
-@commands.has_permissions(administrator=True)
 async def setlogchannel(ctx, channel: discord.TextChannel):
+    if ctx.author.id != ctx.guild.owner_id:
+        return await ctx.send("❌ Only the **server owner** can use this command.")
+
     log_channels[ctx.guild.id] = channel.id
     await ctx.send(f"Log channel set to {channel.mention}")
 
@@ -195,8 +195,10 @@ async def scan(ctx, url: str):
     await ctx.send(embed=embed)
 
 @bot.command()
-@commands.has_permissions(administrator=True)
 async def scanserver(ctx, limit: int = 100):
+    if ctx.author.id != ctx.guild.owner_id:
+        return await ctx.send("❌ Only the **server owner** can use this command.")
+
     await ctx.send(f"Scanning last {limit} messages across all channels...")
 
     found = []
@@ -216,17 +218,26 @@ async def scanserver(ctx, limit: int = 100):
     await ctx.send(f"⚠ Suspicious messages found:\n{report}")
 
 @bot.command()
-@commands.has_permissions(administrator=True)
 async def whitelist(ctx, user: discord.User):
+    if ctx.author.id != ctx.guild.owner_id:
+        return await ctx.send("❌ Only the **server owner** can whitelist users.")
+
     guild_id = ctx.guild.id
     if guild_id not in whitelisted_users:
         whitelisted_users[guild_id] = set()
+
     whitelisted_users[guild_id].add(user.id)
-    await ctx.send(f"User {user.mention} has been whitelisted for adding bots.")
+    await ctx.send(f"✔ {user.mention} has been whitelisted by the **server owner**.")
 
 @bot.tree.command(name="whitelist", description="Whitelist a user so they can add bots.")
-@app_commands.checks.has_permissions(administrator=True)
 async def whitelist_slash(interaction: discord.Interaction, user: discord.User):
+
+    if interaction.user.id != interaction.guild.owner_id:
+        return await interaction.response.send_message(
+            "❌ Only the **server owner** can whitelist users.",
+            ephemeral=True
+        )
+
     guild_id = interaction.guild_id
 
     if guild_id not in whitelisted_users:
@@ -235,7 +246,7 @@ async def whitelist_slash(interaction: discord.Interaction, user: discord.User):
     whitelisted_users[guild_id].add(user.id)
 
     await interaction.response.send_message(
-        f"User {user.mention} has been **whitelisted** for adding bots.",
+        f"✔ {user.mention} has been whitelisted by the **server owner**.",
         ephemeral=True
     )
 bot.run(TOKEN)
