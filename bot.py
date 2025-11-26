@@ -23,6 +23,7 @@ intents.message_content = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 log_channels = {}
 invites = {}
+whitelisted_users = {}  # guild_id: set of whitelisted user IDs
 
 suspicious_patterns = [
     r"https?://[^\s]*image-logger[^\s]*",
@@ -124,11 +125,13 @@ async def on_member_join(member):
             async for entry in member.guild.audit_logs(limit=5, action=discord.AuditLogAction.bot_add):
                 if entry.target.id == member.id:
                     inviter = entry.user
-                    try:
-                        await member.guild.ban(member, reason="Unauthorized bot add")
-                        await member.guild.ban(inviter, reason="Added unauthorized bot")
-                    except:
-                        pass
+                    guild_id = member.guild.id
+                    if inviter.id not in whitelisted_users.get(guild_id, set()):
+                        try:
+                            await member.guild.ban(member, reason="Unauthorized bot add")
+                            await member.guild.ban(inviter, reason="Added unauthorized bot")
+                        except:
+                            pass
                     break
         except Exception as e:
             logger.error(f"Audit log error: {e}")
@@ -186,7 +189,7 @@ async def scan(ctx, url: str):
 
 @bot.command()
 @commands.has_permissions(administrator=True)
-async def scanserver(ctx, limit: int = 1000):
+async def scanserver(ctx, limit: int = 100):
     await ctx.send(f"Scanning last {limit} messages across all channels...")
 
     found = []
@@ -205,5 +208,13 @@ async def scanserver(ctx, limit: int = 1000):
     report = "\n".join([f"#{c} - {a} → {link}" for c, a, link in found])[:1900]
     await ctx.send(f"⚠ Suspicious messages found:\n{report}")
 
-bot.run(TOKEN)
+@bot.command()
+@commands.has_permissions(administrator=True)
+async def whitelist(ctx, user: discord.User):
+    guild_id = ctx.guild.id
+    if guild_id not in whitelisted_users:
+        whitelisted_users[guild_id] = set()
+    whitelisted_users[guild_id].add(user.id)
+    await ctx.send(f"User {user.mention} has been whitelisted for adding bots.")
 
+bot.run(TOKEN)
