@@ -186,7 +186,7 @@ async def scan(ctx, url: str):
 
 @bot.command()
 @commands.has_permissions(administrator=True)
-async def scanserver(ctx, limit: int = 100):
+async def scanserver(ctx, limit: int = 1000):
     await ctx.send(f"Scanning last {limit} messages across all channels...")
 
     found = []
@@ -206,3 +206,4 @@ async def scanserver(ctx, limit: int = 100):
     await ctx.send(f"⚠ Suspicious messages found:\n{report}")
 
 bot.run(TOKEN)
+
