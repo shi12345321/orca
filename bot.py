@@ -220,7 +220,7 @@ async def scanserver(ctx, limit: int = 100):
 @bot.command()
 async def whitelist(ctx, user: discord.User):
     if ctx.author.id != ctx.guild.owner_id:
-        return await ctx.send("❌ Only the **server owner** can whitelist users.")
+        return await ctx.send("HINDI KA OWNER TANGA")
 
     guild_id = ctx.guild.id
     if guild_id not in whitelisted_users:
@@ -234,7 +234,7 @@ async def whitelist_slash(interaction: discord.Interaction, user: discord.User):
 
     if interaction.user.id != interaction.guild.owner_id:
         return await interaction.response.send_message(
-            "❌ Only the **server owner** can whitelist users.",
+            "HINDI KA OWNER TANGA",
             ephemeral=True
         )
 
@@ -250,3 +250,4 @@ async def whitelist_slash(interaction: discord.Interaction, user: discord.User):
         ephemeral=True
     )
 bot.run(TOKEN)
+
