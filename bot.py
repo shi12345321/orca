@@ -10,6 +10,8 @@ from dotenv import load_dotenv
 import socket
 import subprocess
 import datetime
+import zipfile
+from bs4 import BeautifulSoup
 
 load_dotenv()
 TOKEN = os.getenv("DISCORD_TOKEN")
@@ -293,7 +295,6 @@ async def dnsdumpster(ctx, domain: str):
 
                 html = await resp.text()
                 embed = discord.Embed(title=f"DNSDumpster for {domain}", color=discord.Color.blue())
-                embed.add_field(name="Note", value="Passive DNS data parsing not fully implemented. Use external tools for accurate data.", inline=False)
                 await ctx.send(embed=embed)
         except Exception as e:
             await ctx.send(f"❌ Error: {e}")
@@ -378,10 +379,55 @@ async def clonewebsite(ctx, url: str):
                     return await ctx.send(f"❌ Failed to fetch website. Status: {resp.status}")
 
                 html = await resp.text()
-                preview = html[:1000] + ("..." if len(html) > 1000 else "")
-                embed = discord.Embed(title=f"Cloned Website: {url}", color=discord.Color.blue())
-                embed.add_field(name="HTML Preview", value=f"```\n{preview}\n```", inline=False)
-                await ctx.send(embed=embed)
+                soup = BeautifulSoup(html, 'html.parser')
+                base_url = url.rstrip('/')
+
+                site_dir = "cloned_site"
+                os.makedirs(site_dir, exist_ok=True)
+
+                with open(f"{site_dir}/index.html", "w", encoding="utf-8") as f:
+                    f.write(html)
+
+                assets = []
+                for link in soup.find_all('link', rel='stylesheet'):
+                    href = link.get('href')
+                    if href:
+                        assets.append(href)
+
+                for script in soup.find_all('script', src=True):
+                    src = script.get('src')
+                    if src:
+                        assets.append(src)
+
+                for asset_url in assets[:10]:
+                    try:
+                        if not asset_url.startswith('http'):
+                            asset_url = base_url + '/' + asset_url.lstrip('/')
+                        async with session.get(asset_url, headers=headers, timeout=10) as asset_resp:
+                            if asset_resp.status == 200:
+                                content = await asset_resp.read()
+                                filename = os.path.basename(asset_url.split('?')[0])
+                                with open(f"{site_dir}/{filename}", "wb") as f:
+                                    f.write(content)
+                    except:
+                        pass
+
+                zip_filename = "cloned_website.zip"
+                with zipfile.ZipFile(zip_filename, 'w') as zipf:
+                    for root, dirs, files in os.walk(site_dir):
+                        for file in files:
+                            zipf.write(os.path.join(root, file), os.path.relpath(os.path.join(root, file), site_dir))
+
+                await ctx.send(file=discord.File(zip_filename))
+
+                os.remove(zip_filename)
+                for root, dirs, files in os.walk(site_dir, topdown=False):
+                    for file in files:
+                        os.remove(os.path.join(root, file))
+                    for dir in dirs:
+                        os.rmdir(os.path.join(root, dir))
+                os.rmdir(site_dir)
+
         except Exception as e:
             await ctx.send(f"❌ Error: {e}")
 
