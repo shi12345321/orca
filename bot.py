@@ -836,14 +836,23 @@ async def geoip(ctx, ip: str):
 
 @bot.command()
 async def kickviewers(ctx, channel: str, viewers: int):
-    global stop
+    global stop, channel_id, stream_id
     if viewers <= 0 or viewers > 10000:
         return await ctx.send("❌ Invalid number of viewers. Must be between 1 and 10000.")
+
+    
+    channel_id = None
+    stream_id = None
+
+    
+    cleaned_channel = clean_channel_name(channel)
+    if not get_channel_info(cleaned_channel):
+        return await ctx.send(f"❌ Channel '{channel}' not found on Kick.com.")
 
     stop = False
     await ctx.send(f"🚀 Starting Kick viewer bot for channel '{channel}' with {viewers} viewers...")
 
-    viewer_thread = Thread(target=run, args=(viewers, channel), daemon=True)
+    viewer_thread = Thread(target=run, args=(viewers, cleaned_channel), daemon=True)
     viewer_thread.start()
 
 @bot.command()
