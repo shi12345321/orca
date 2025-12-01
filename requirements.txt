@@ -1,4 +1,7 @@
 discord.py
 python-dotenv
 requests
+pip install beautifulsoup4
+
+
 
