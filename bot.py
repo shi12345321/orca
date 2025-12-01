@@ -7,6 +7,9 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 from dotenv import load_dotenv
+import socket
+import subprocess
+import datetime
 
 load_dotenv()
 TOKEN = os.getenv("DISCORD_TOKEN")
@@ -21,6 +24,7 @@ intents.guilds = True
 intents.message_content = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
+start_time = datetime.datetime.utcnow()
 log_channels = {}
 invites = {}
 whitelisted_users = {}  
@@ -249,5 +253,117 @@ async def whitelist_slash(interaction: discord.Interaction, user: discord.User):
         f"✔ {user.mention} has been whitelisted by the **server owner**.",
         ephemeral=True
     )
-bot.run(TOKEN)
 
+@bot.command()
+async def avatar(ctx, user: discord.User = None):
+    if user is None:
+        user = ctx.author
+
+    embed = discord.Embed(title=f"{user.name}'s Avatar", color=discord.Color.blue())
+    embed.set_image(url=user.avatar.url if user.avatar else user.default_avatar.url)
+
+    embed.add_field(name="PNG", value=f"[Link]({user.avatar.url.replace('webp', 'png') if user.avatar else user.default_avatar.url})", inline=True)
+    embed.add_field(name="JPEG", value=f"[Link]({user.avatar.url.replace('webp', 'jpg') if user.avatar else user.default_avatar.url})", inline=True)
+    embed.add_field(name="WebP", value=f"[Link]({user.avatar.url if user.avatar else user.default_avatar.url})", inline=True)
+    embed.add_field(name="GIF", value=f"[Link]({user.avatar.url.replace('webp', 'gif') if user.avatar else user.default_avatar.url})", inline=True)
+
+    await ctx.send(embed=embed)
+
+@bot.command()
+async def credits(ctx):
+    embed = discord.Embed(title="Bot Credits", color=discord.Color.green())
+    embed.set_author(name="ORCA SECURITY")
+    embed.set_footer(text="Made by Alfie")
+    embed.add_field(name="Creator", value="Alfie", inline=True)
+    embed.add_field(name="Description", value="A security-focused Discord bot for monitoring and protecting servers.", inline=False)
+    embed.add_field(name="Version", value="1.0.0", inline=True)
+    embed.add_field(name="Library", value="discord.py", inline=True)
+    await ctx.send(embed=embed)
+
+@bot.command()
+async def dnsdumpster(ctx, domain: str):
+    url = f"https://dnsdumpster.com/"
+    headers = {"User-Agent": "Mozilla/5.0"}
+
+    async with aiohttp.ClientSession() as session:
+        try:
+            async with session.get(url, headers=headers) as resp:
+                if resp.status != 200:
+                    return await ctx.send("❌ Failed to fetch DNSDumpster data.")
+
+                html = await resp.text()
+                # Simple parsing for demonstration; in reality, you'd need to parse the HTML properly
+                # This is a placeholder; actual implementation would require scraping the page
+                embed = discord.Embed(title=f"DNSDumpster for {domain}", color=discord.Color.blue())
+                embed.add_field(name="Note", value="Passive DNS data parsing not fully implemented. Use external tools for accurate data.", inline=False)
+                await ctx.send(embed=embed)
+        except Exception as e:
+            await ctx.send(f"❌ Error: {e}")
+
+@bot.command()
+async def dnslookup(ctx, domain: str):
+    try:
+        records = socket.getaddrinfo(domain, None)
+        embed = discord.Embed(title=f"DNS Records for {domain}", color=discord.Color.blue())
+        for record in records[:10]:  # Limit to 10 records
+            embed.add_field(name="Record", value=f"{record[4][0]}", inline=False)
+        await ctx.send(embed=embed)
+    except Exception as e:
+        await ctx.send(f"❌ Error: {e}")
+
+@bot.command()
+async def tulongs(ctx):
+    commands_list = [cmd.name for cmd in bot.commands]
+    embed = discord.Embed(title="Available Commands", color=discord.Color.blue())
+    embed.add_field(name="Commands", value="\n".join(commands_list), inline=False)
+    await ctx.send(embed=embed)
+
+@bot.command()
+async def ping(ctx):
+    latency = round(bot.latency * 1000)
+    embed = discord.Embed(title="Bot Latency", color=discord.Color.green())
+    embed.add_field(name="Ping", value=f"{latency}ms", inline=True)
+    await ctx.send(embed=embed)
+
+@bot.command()
+async def pinghost(ctx, host: str):
+    try:
+        result = subprocess.run(["ping", "-c", "4", host], capture_output=True, text=True, timeout=10)
+        embed = discord.Embed(title=f"Ping {host}", color=discord.Color.blue())
+        embed.add_field(name="Output", value=f"```\n{result.stdout[:1000]}\n```", inline=False)
+        await ctx.send(embed=embed)
+    except Exception as e:
+        await ctx.send(f"❌ Error: {e}")
+
+@bot.command()
+async def servericon(ctx):
+    if ctx.guild.icon:
+        embed = discord.Embed(title=f"{ctx.guild.name}'s Icon", color=discord.Color.blue())
+        embed.set_image(url=ctx.guild.icon.url)
+        await ctx.send(embed=embed)
+    else:
+        await ctx.send("❌ This server has no icon.")
+
+@bot.command()
+async def serverinfo(ctx):
+    embed = discord.Embed(title=f"{ctx.guild.name} Info", color=discord.Color.blue())
+    embed.add_field(name="Owner", value=ctx.guild.owner.mention, inline=True)
+    embed.add_field(name="Members", value=ctx.guild.member_count, inline=True)
+    embed.add_field(name="Channels", value=len(ctx.guild.channels), inline=True)
+    embed.add_field(name="Roles", value=len(ctx.guild.roles), inline=True)
+    embed.add_field(name="Created", value=ctx.guild.created_at.strftime("%Y-%m-%d"), inline=True)
+    embed.set_thumbnail(url=ctx.guild.icon.url if ctx.guild.icon else None)
+    await ctx.send(embed=embed)
+
+@bot.command()
+async def uptime(ctx):
+    now = datetime.datetime.utcnow()
+    uptime = now - start_time
+    days, remainder = divmod(int(uptime.total_seconds()), 86400)
+    hours, remainder = divmod(remainder, 3600)
+    minutes, seconds = divmod(remainder, 60)
+    embed = discord.Embed(title="Bot Uptime", color=discord.Color.green())
+    embed.add_field(name="Uptime", value=f"{days}d {hours}h {minutes}m {seconds}s", inline=True)
+    await ctx.send(embed=embed)
+
+bot.run(TOKEN)
