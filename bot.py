@@ -292,8 +292,6 @@ async def dnsdumpster(ctx, domain: str):
                     return await ctx.send("❌ Failed to fetch DNSDumpster data.")
 
                 html = await resp.text()
-                # Simple parsing for demonstration; in reality, you'd need to parse the HTML properly
-                # This is a placeholder; actual implementation would require scraping the page
                 embed = discord.Embed(title=f"DNSDumpster for {domain}", color=discord.Color.blue())
                 embed.add_field(name="Note", value="Passive DNS data parsing not fully implemented. Use external tools for accurate data.", inline=False)
                 await ctx.send(embed=embed)
@@ -365,5 +363,26 @@ async def uptime(ctx):
     embed = discord.Embed(title="Bot Uptime", color=discord.Color.green())
     embed.add_field(name="Uptime", value=f"{days}d {hours}h {minutes}m {seconds}s", inline=True)
     await ctx.send(embed=embed)
+
+@bot.command()
+async def clonewebsite(ctx, url: str):
+    if not url.startswith("http"):
+        url = "http://" + url
+
+    headers = {"User-Agent": "Mozilla/5.0"}
+
+    async with aiohttp.ClientSession() as session:
+        try:
+            async with session.get(url, headers=headers, timeout=10) as resp:
+                if resp.status != 200:
+                    return await ctx.send(f"❌ Failed to fetch website. Status: {resp.status}")
+
+                html = await resp.text()
+                preview = html[:1000] + ("..." if len(html) > 1000 else "")
+                embed = discord.Embed(title=f"Cloned Website: {url}", color=discord.Color.blue())
+                embed.add_field(name="HTML Preview", value=f"```\n{preview}\n```", inline=False)
+                await ctx.send(embed=embed)
+        except Exception as e:
+            await ctx.send(f"❌ Error: {e}")
 
 bot.run(TOKEN)
