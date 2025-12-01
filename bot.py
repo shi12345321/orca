@@ -310,7 +310,7 @@ async def dnslookup(ctx, domain: str):
         await ctx.send(f"❌ Error: {e}")
 
 @bot.command()
-async def tulongs(ctx):
+async def orca(ctx):
     commands_list = [cmd.name for cmd in bot.commands]
     embed = discord.Embed(title="Available Commands", color=discord.Color.blue())
     embed.add_field(name="Commands", value="\n".join(commands_list), inline=False)
