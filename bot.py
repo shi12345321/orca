@@ -23,7 +23,7 @@ intents.members = True
 intents.guilds = True
 intents.message_content = True
 
-bot = commands.Bot(command_prefix="!", intents=intents)
+bot = commands.Bot(command_prefix="!", intents=intents, help_command=None)
 start_time = datetime.datetime.utcnow()
 log_channels = {}
 invites = {}
