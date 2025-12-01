@@ -834,5 +834,23 @@ async def geoip(ctx, ip: str):
         except Exception as e:
             await ctx.send(f"❌ Error: {e}")
 
+@bot.command()
+async def kickviewers(ctx, channel: str, viewers: int):
+    global stop
+    if viewers <= 0 or viewers > 10000:
+        return await ctx.send("❌ Invalid number of viewers. Must be between 1 and 10000.")
+
+    stop = False
+    await ctx.send(f"🚀 Starting Kick viewer bot for channel '{channel}' with {viewers} viewers...")
+
+    viewer_thread = Thread(target=run, args=(viewers, channel), daemon=True)
+    viewer_thread.start()
+
+@bot.command()
+async def stopkick(ctx):
+    global stop
+    stop = True
+    await ctx.send("🛑 Stopping Kick viewer bot...")
+
 bot.run(TOKEN)
 
