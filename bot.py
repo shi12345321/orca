@@ -431,4 +431,60 @@ async def clonewebsite(ctx, url: str):
         except Exception as e:
             await ctx.send(f"❌ Error: {e}")
 
+@bot.command()
+async def ipinfo(ctx, ip: str):
+    headers = {"User-Agent": "Mozilla/5.0"}
+
+    async with aiohttp.ClientSession() as session:
+        try:
+            async with session.get(f"http://ip-api.com/json/{ip}", headers=headers) as resp:
+                if resp.status != 200:
+                    return await ctx.send("❌ Failed to fetch IP information.")
+
+                data = await resp.json()
+
+                if data.get("status") == "fail":
+                    return await ctx.send(f"❌ Invalid IP address or lookup failed: {data.get('message', 'Unknown error')}")
+
+                embed = discord.Embed(title=f"IP Information for {ip}", color=discord.Color.blue())
+                embed.add_field(name="Country", value=data.get("country", "N/A"), inline=True)
+                embed.add_field(name="Region", value=data.get("regionName", "N/A"), inline=True)
+                embed.add_field(name="City", value=data.get("city", "N/A"), inline=True)
+                embed.add_field(name="ISP", value=data.get("isp", "N/A"), inline=True)
+                embed.add_field(name="Organization", value=data.get("org", "N/A"), inline=True)
+                embed.add_field(name="AS", value=data.get("as", "N/A"), inline=True)
+                embed.add_field(name="Timezone", value=data.get("timezone", "N/A"), inline=True)
+
+                await ctx.send(embed=embed)
+        except Exception as e:
+            await ctx.send(f"❌ Error: {e}")
+
+@bot.command()
+async def geoip(ctx, ip: str):
+    headers = {"User-Agent": "Mozilla/5.0"}
+
+    async with aiohttp.ClientSession() as session:
+        try:
+            async with session.get(f"http://ip-api.com/json/{ip}", headers=headers) as resp:
+                if resp.status != 200:
+                    return await ctx.send("❌ Failed to fetch geolocation data.")
+
+                data = await resp.json()
+
+                if data.get("status") == "fail":
+                    return await ctx.send(f"❌ Invalid IP address or lookup failed: {data.get('message', 'Unknown error')}")
+
+                embed = discord.Embed(title=f"Geolocation for {ip}", color=discord.Color.green())
+                embed.add_field(name="Country", value=f"{data.get('country', 'N/A')} ({data.get('countryCode', 'N/A')})", inline=True)
+                embed.add_field(name="Region", value=data.get("regionName", "N/A"), inline=True)
+                embed.add_field(name="City", value=data.get("city", "N/A"), inline=True)
+                embed.add_field(name="ZIP Code", value=data.get("zip", "N/A"), inline=True)
+                embed.add_field(name="Latitude", value=data.get("lat", "N/A"), inline=True)
+                embed.add_field(name="Longitude", value=data.get("lon", "N/A"), inline=True)
+                embed.add_field(name="Timezone", value=data.get("timezone", "N/A"), inline=True)
+
+                await ctx.send(embed=embed)
+        except Exception as e:
+            await ctx.send(f"❌ Error: {e}")
+
 bot.run(TOKEN)
