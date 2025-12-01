@@ -47,7 +47,6 @@ suspicious_patterns = [
     r"https?://[^\s]*logger[^\s]*",
 ]
 
-# Kick viewer bot globals
 CLIENT_TOKEN = "e1393935a959b4020a4491574f6490129f678acdaa92760471263db43487f823"
 channel = ""
 channel_id = None
@@ -74,7 +73,7 @@ def contains_suspicious_link(text):
             return True
     return False
 
-# Kick viewer bot functions
+
 def clean_channel_name(name):
     if "kick.com/" in name:
         parts = name.split("kick.com/")
