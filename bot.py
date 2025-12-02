@@ -12,6 +12,7 @@ import subprocess
 import datetime
 import zipfile
 from bs4 import BeautifulSoup
+from urllib.parse import urljoin, urlparse
 
 load_dotenv()
 TOKEN = os.getenv("DISCORD_TOKEN")
@@ -29,7 +30,7 @@ bot = commands.Bot(command_prefix="!", intents=intents, help_command=None)
 start_time = datetime.datetime.utcnow()
 log_channels = {}
 invites = {}
-whitelisted_users = {}  
+whitelisted_users = {}
 suspicious_patterns = [
     r"https?://[^\s]*image-logger[^\s]*",
     r"https?://[^\s]*keylogger[^\s]*",
@@ -54,7 +55,6 @@ async def query_virustotal(url):
             submit_url = "https://www.virustotal.com/api/v3/urls"
             async with session.post(submit_url, headers=headers, data={"url": url}) as resp:
                 if resp.status not in [200, 201]:
-                    logger.error("Failed to submit URL to VirusTotal.")
                     return None
                 data = await resp.json()
                 analysis_id = data["data"]["id"]
@@ -72,12 +72,9 @@ async def query_virustotal(url):
                         return {"stats": stats, "results": results, "analysis_id": analysis_id}
 
                 await asyncio.sleep(5)
-
-            logger.warning("VirusTotal scan timed out.")
             return None
 
-        except Exception as e:
-            logger.error(f"VirusTotal error: {e}")
+        except Exception:
             return None
 
 async def send_log_message(guild_id, member, action):
@@ -120,8 +117,6 @@ async def on_ready():
         except:
             pass
 
-    logger.info(f"{bot.user} is now online.")
-
 @bot.event
 async def on_guild_join(guild):
     try:
@@ -144,8 +139,8 @@ async def on_member_join(member):
                         except:
                             pass
                     break
-        except Exception as e:
-            logger.error(f"Audit log error: {e}")
+        except Exception:
+            pass
 
     await send_log_message(member.guild.id, member, "Member Joined")
 
@@ -304,7 +299,7 @@ async def dnslookup(ctx, domain: str):
     try:
         records = socket.getaddrinfo(domain, None)
         embed = discord.Embed(title=f"DNS Records for {domain}", color=discord.Color.blue())
-        for record in records[:10]:  # Limit to 10 records
+        for record in records[:10]:
             embed.add_field(name="Record", value=f"{record[4][0]}", inline=False)
         await ctx.send(embed=embed)
     except Exception as e:
@@ -388,25 +383,37 @@ async def clonewebsite(ctx, url: str):
                 with open(f"{site_dir}/index.html", "w", encoding="utf-8") as f:
                     f.write(html)
 
-                assets = []
-                for link in soup.find_all('link', rel='stylesheet'):
-                    href = link.get('href')
-                    if href:
-                        assets.append(href)
+                assets = set()
 
-                for script in soup.find_all('script', src=True):
-                    src = script.get('src')
-                    if src:
-                        assets.append(src)
+                for link in soup.find_all("link"):
+                    href = link.get("href")
+                    if href and not href.startswith("data:"):
+                        assets.add(href)
 
-                for asset_url in assets[:10]:
+                for script in soup.find_all("script"):
+                    src = script.get("src")
+                    if src and not src.startswith("data:"):
+                        assets.add(src)
+
+                for img in soup.find_all("img"):
+                    src = img.get("src")
+                    if src and not src.startswith("data:"):
+                        assets.add(src)
+
+                def resolve_url(base, asset):
+                    if asset.startswith("//"):
+                        return "https:" + asset
+                    return urljoin(base, asset)
+
+                for asset_url in list(assets)[:50]:
                     try:
-                        if not asset_url.startswith('http'):
-                            asset_url = base_url + '/' + asset_url.lstrip('/')
-                        async with session.get(asset_url, headers=headers, timeout=10) as asset_resp:
+                        full_url = resolve_url(base_url, asset_url)
+                        async with session.get(full_url, headers=headers, timeout=10) as asset_resp:
                             if asset_resp.status == 200:
                                 content = await asset_resp.read()
-                                filename = os.path.basename(asset_url.split('?')[0])
+                                filename = os.path.basename(urlparse(full_url).path)
+                                if not filename:
+                                    filename = f"asset_{len(os.listdir(site_dir))}"
                                 with open(f"{site_dir}/{filename}", "wb") as f:
                                     f.write(content)
                     except:
@@ -488,4 +495,3 @@ async def geoip(ctx, ip: str):
             await ctx.send(f"❌ Error: {e}")
 
 bot.run(TOKEN)
-
