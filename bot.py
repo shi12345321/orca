@@ -25,6 +25,7 @@ intents = discord.Intents.default()
 intents.members = True
 intents.guilds = True
 intents.message_content = True
+intents.presences = True
 
 bot = commands.Bot(command_prefix="!", intents=intents, help_command=None)
 start_time = datetime.datetime.utcnow()
@@ -49,7 +50,6 @@ def contains_suspicious_link(text):
 
 async def query_virustotal(url):
     headers = {"x-apikey": VIRUSTOTAL_API_KEY}
-
     async with aiohttp.ClientSession() as session:
         try:
             submit_url = "https://www.virustotal.com/api/v3/urls"
@@ -58,22 +58,17 @@ async def query_virustotal(url):
                     return None
                 data = await resp.json()
                 analysis_id = data["data"]["id"]
-
             analysis_url = f"https://www.virustotal.com/api/v3/analyses/{analysis_id}"
-
             for _ in range(12):
                 async with session.get(analysis_url, headers=headers) as report:
                     rdata = await report.json()
                     status = rdata["data"]["attributes"]["status"]
-
                     if status == "completed":
                         stats = rdata["data"]["attributes"]["stats"]
                         results = rdata["data"]["attributes"].get("results", {})
                         return {"stats": stats, "results": results, "analysis_id": analysis_id}
-
                 await asyncio.sleep(5)
             return None
-
         except Exception:
             return None
 
@@ -81,36 +76,29 @@ async def send_log_message(guild_id, member, action):
     channel_id = log_channels.get(guild_id)
     if not channel_id:
         return
-
     channel = bot.get_channel(channel_id)
     if not channel:
         return
-
     embed = discord.Embed(color=discord.Color.dark_red())
     embed.set_author(name="ORCA SECURITY")
     embed.set_footer(text="Made by Alfie")
     embed.timestamp = discord.utils.utcnow()
-
     avatar = member.avatar.url if member.avatar else member.default_avatar.url
     embed.set_thumbnail(url=avatar)
-
     embed.add_field(name="Member", value=member.name, inline=True)
     embed.add_field(name="ID", value=str(member.id), inline=True)
     embed.add_field(name="Action", value=action, inline=False)
-
     await channel.send(embed=embed)
 
 @bot.event
 async def on_ready():
     activity = discord.Game(name="WATCHING ORCA SERVERS")
     await bot.change_presence(status=discord.Status.online, activity=activity)
-
     try:
         synced = await bot.tree.sync()
         logger.info(f"Synced {len(synced)} slash commands.")
     except Exception as e:
         logger.error(f"Slash command sync error: {e}")
-
     for guild in bot.guilds:
         try:
             invites[guild.id] = await guild.invites()
@@ -141,7 +129,6 @@ async def on_member_join(member):
                     break
         except Exception:
             pass
-
     await send_log_message(member.guild.id, member, "Member Joined")
 
 @bot.event
@@ -152,21 +139,15 @@ async def on_member_remove(member):
 async def on_message(message):
     if message.author.bot:
         return
-
     if contains_suspicious_link(message.content):
-        warn = discord.Embed(
-            description=f"⚠️ Suspicious link detected from {message.author.mention}",
-            color=discord.Color.red()
-        )
+        warn = discord.Embed(description=f"⚠️ Suspicious link detected from {message.author.mention}", color=discord.Color.red())
         await message.channel.send(embed=warn)
-
     await bot.process_commands(message)
 
 @bot.command()
 async def setlogchannel(ctx, channel: discord.TextChannel):
     if ctx.author.id != ctx.guild.owner_id:
         return await ctx.send("❌ Only the **server owner** can use this command.")
-
     log_channels[ctx.guild.id] = channel.id
     await ctx.send(f"Log channel set to {channel.mention}")
 
@@ -174,36 +155,24 @@ async def setlogchannel(ctx, channel: discord.TextChannel):
 async def scan(ctx, url: str):
     if not VIRUSTOTAL_API_KEY:
         return await ctx.send("VirusTotal API key missing.")
-
     await ctx.send(f"🔍 Scanning URL: {url}")
     result = await query_virustotal(url)
-
     if not result:
         return await ctx.send("❌ Failed to fetch VirusTotal results.")
-
     stats = result["stats"]
-
-    embed = discord.Embed(
-        title=f"Scan results for {url}",
-        color=discord.Color.green() if stats["malicious"] == 0 else discord.Color.red()
-    )
-
+    embed = discord.Embed(title=f"Scan results for {url}", color=discord.Color.green() if stats["malicious"] == 0 else discord.Color.red())
     embed.add_field(name="Malicious", value=stats["malicious"])
     embed.add_field(name="Suspicious", value=stats["suspicious"])
     embed.add_field(name="Harmless", value=stats["harmless"])
     embed.add_field(name="Undetected", value=stats["undetected"])
-
     await ctx.send(embed=embed)
 
 @bot.command()
 async def scanserver(ctx, limit: int = 100):
     if ctx.author.id != ctx.guild.owner_id:
         return await ctx.send("❌ Only the **server owner** can use this command.")
-
     await ctx.send(f"Scanning last {limit} messages across all channels...")
-
     found = []
-
     for channel in ctx.guild.text_channels:
         try:
             async for msg in channel.history(limit=limit):
@@ -211,10 +180,8 @@ async def scanserver(ctx, limit: int = 100):
                     found.append((channel.name, msg.author, msg.jump_url))
         except:
             pass
-
     if not found:
         return await ctx.send("✔ No suspicious links found.")
-
     report = "\n".join([f"#{c} - {a} → {link}" for c, a, link in found])[:1900]
     await ctx.send(f"⚠ Suspicious messages found:\n{report}")
 
@@ -222,49 +189,44 @@ async def scanserver(ctx, limit: int = 100):
 async def whitelist(ctx, user: discord.User):
     if ctx.author.id != ctx.guild.owner_id:
         return await ctx.send("HINDI KA OWNER TANGA")
-
     guild_id = ctx.guild.id
     if guild_id not in whitelisted_users:
         whitelisted_users[guild_id] = set()
-
     whitelisted_users[guild_id].add(user.id)
     await ctx.send(f"✔ {user.mention} has been whitelisted by the **server owner**.")
 
 @bot.tree.command(name="whitelist", description="Whitelist a user so they can add bots.")
 async def whitelist_slash(interaction: discord.Interaction, user: discord.User):
-
     if interaction.user.id != interaction.guild.owner_id:
-        return await interaction.response.send_message(
-            "HINDI KA OWNER TANGA",
-            ephemeral=True
-        )
-
+        return await interaction.response.send_message("HINDI KA OWNER TANGA", ephemeral=True)
     guild_id = interaction.guild_id
-
     if guild_id not in whitelisted_users:
         whitelisted_users[guild_id] = set()
-
     whitelisted_users[guild_id].add(user.id)
-
-    await interaction.response.send_message(
-        f"✔ {user.mention} has been whitelisted by the **server owner**.",
-        ephemeral=True
-    )
+    await interaction.response.send_message(f"✔ {user.mention} has been whitelisted by the **server owner**.", ephemeral=True)
 
 @bot.command()
 async def avatar(ctx, user: discord.User = None):
     if user is None:
         user = ctx.author
-
     embed = discord.Embed(title=f"{user.name}'s Avatar", color=discord.Color.blue())
     embed.set_image(url=user.avatar.url if user.avatar else user.default_avatar.url)
-
     embed.add_field(name="PNG", value=f"[Link]({user.avatar.url.replace('webp', 'png') if user.avatar else user.default_avatar.url})", inline=True)
     embed.add_field(name="JPEG", value=f"[Link]({user.avatar.url.replace('webp', 'jpg') if user.avatar else user.default_avatar.url})", inline=True)
     embed.add_field(name="WebP", value=f"[Link]({user.avatar.url if user.avatar else user.default_avatar.url})", inline=True)
     embed.add_field(name="GIF", value=f"[Link]({user.avatar.url.replace('webp', 'gif') if user.avatar else user.default_avatar.url})", inline=True)
-
     await ctx.send(embed=embed)
+
+@bot.command()
+async def status(ctx, user: discord.Member = None):
+    if user is None:
+        user = ctx.author
+    s = str(user.status).upper()
+    a = user.activity.name if user.activity else "None"
+    e = discord.Embed(title=f"{user.name}'s Status", color=discord.Color.blue())
+    e.add_field(name="Status", value=s, inline=True)
+    e.add_field(name="Activity", value=a, inline=True)
+    await ctx.send(embed=e)
 
 @bot.command()
 async def credits(ctx):
@@ -281,13 +243,11 @@ async def credits(ctx):
 async def dnsdumpster(ctx, domain: str):
     url = f"https://dnsdumpster.com/"
     headers = {"User-Agent": "Mozilla/5.0"}
-
     async with aiohttp.ClientSession() as session:
         try:
             async with session.get(url, headers=headers) as resp:
                 if resp.status != 200:
                     return await ctx.send("❌ Failed to fetch DNSDumpster data.")
-
                 html = await resp.text()
                 embed = discord.Embed(title=f"DNSDumpster for {domain}", color=discord.Color.blue())
                 await ctx.send(embed=embed)
@@ -364,47 +324,36 @@ async def uptime(ctx):
 async def clonewebsite(ctx, url: str):
     if not url.startswith("http"):
         url = "http://" + url
-
     headers = {"User-Agent": "Mozilla/5.0"}
-
     async with aiohttp.ClientSession() as session:
         try:
             async with session.get(url, headers=headers, timeout=10) as resp:
                 if resp.status != 200:
                     return await ctx.send(f"❌ Failed to fetch website. Status: {resp.status}")
-
                 html = await resp.text()
                 soup = BeautifulSoup(html, 'html.parser')
                 base_url = url.rstrip('/')
-
                 site_dir = "cloned_site"
                 os.makedirs(site_dir, exist_ok=True)
-
                 with open(f"{site_dir}/index.html", "w", encoding="utf-8") as f:
                     f.write(html)
-
                 assets = set()
-
                 for link in soup.find_all("link"):
                     href = link.get("href")
                     if href and not href.startswith("data:"):
                         assets.add(href)
-
                 for script in soup.find_all("script"):
                     src = script.get("src")
                     if src and not src.startswith("data:"):
                         assets.add(src)
-
                 for img in soup.find_all("img"):
                     src = img.get("src")
                     if src and not src.startswith("data:"):
                         assets.add(src)
-
                 def resolve_url(base, asset):
                     if asset.startswith("//"):
                         return "https:" + asset
                     return urljoin(base, asset)
-
                 for asset_url in list(assets)[:50]:
                     try:
                         full_url = resolve_url(base_url, asset_url)
@@ -418,15 +367,12 @@ async def clonewebsite(ctx, url: str):
                                     f.write(content)
                     except:
                         pass
-
                 zip_filename = "cloned_website.zip"
                 with zipfile.ZipFile(zip_filename, 'w') as zipf:
                     for root, dirs, files in os.walk(site_dir):
                         for file in files:
                             zipf.write(os.path.join(root, file), os.path.relpath(os.path.join(root, file), site_dir))
-
                 await ctx.send(file=discord.File(zip_filename))
-
                 os.remove(zip_filename)
                 for root, dirs, files in os.walk(site_dir, topdown=False):
                     for file in files:
@@ -434,25 +380,20 @@ async def clonewebsite(ctx, url: str):
                     for dir in dirs:
                         os.rmdir(os.path.join(root, dir))
                 os.rmdir(site_dir)
-
         except Exception as e:
             await ctx.send(f"❌ Error: {e}")
 
 @bot.command()
 async def ipinfo(ctx, ip: str):
     headers = {"User-Agent": "Mozilla/5.0"}
-
     async with aiohttp.ClientSession() as session:
         try:
             async with session.get(f"http://ip-api.com/json/{ip}", headers=headers) as resp:
                 if resp.status != 200:
                     return await ctx.send("❌ Failed to fetch IP information.")
-
                 data = await resp.json()
-
                 if data.get("status") == "fail":
                     return await ctx.send(f"❌ Invalid IP address or lookup failed: {data.get('message', 'Unknown error')}")
-
                 embed = discord.Embed(title=f"IP Information for {ip}", color=discord.Color.blue())
                 embed.add_field(name="Country", value=data.get("country", "N/A"), inline=True)
                 embed.add_field(name="Region", value=data.get("regionName", "N/A"), inline=True)
@@ -461,7 +402,6 @@ async def ipinfo(ctx, ip: str):
                 embed.add_field(name="Organization", value=data.get("org", "N/A"), inline=True)
                 embed.add_field(name="AS", value=data.get("as", "N/A"), inline=True)
                 embed.add_field(name="Timezone", value=data.get("timezone", "N/A"), inline=True)
-
                 await ctx.send(embed=embed)
         except Exception as e:
             await ctx.send(f"❌ Error: {e}")
@@ -469,29 +409,6 @@ async def ipinfo(ctx, ip: str):
 @bot.command()
 async def geoip(ctx, ip: str):
     headers = {"User-Agent": "Mozilla/5.0"}
-
     async with aiohttp.ClientSession() as session:
         try:
-            async with session.get(f"http://ip-api.com/json/{ip}", headers=headers) as resp:
-                if resp.status != 200:
-                    return await ctx.send("❌ Failed to fetch geolocation data.")
-
-                data = await resp.json()
-
-                if data.get("status") == "fail":
-                    return await ctx.send(f"❌ Invalid IP address or lookup failed: {data.get('message', 'Unknown error')}")
-
-                embed = discord.Embed(title=f"Geolocation for {ip}", color=discord.Color.green())
-                embed.add_field(name="Country", value=f"{data.get('country', 'N/A')} ({data.get('countryCode', 'N/A')})", inline=True)
-                embed.add_field(name="Region", value=data.get("regionName", "N/A"), inline=True)
-                embed.add_field(name="City", value=data.get("city", "N/A"), inline=True)
-                embed.add_field(name="ZIP Code", value=data.get("zip", "N/A"), inline=True)
-                embed.add_field(name="Latitude", value=data.get("lat", "N/A"), inline=True)
-                embed.add_field(name="Longitude", value=data.get("lon", "N/A"), inline=True)
-                embed.add_field(name="Timezone", value=data.get("timezone", "N/A"), inline=True)
-
-                await ctx.send(embed=embed)
-        except Exception as e:
-            await ctx.send(f"❌ Error: {e}")
-
-bot.run(TOKEN)
+            async with session.get(f"http://ip-api.com/json/{ip
